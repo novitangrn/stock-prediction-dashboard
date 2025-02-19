@@ -67,7 +67,7 @@ def load_historical_data():
 
 df = load_historical_data()
 
-# Layout dengan kolom - DIUBAH: Prediksi di kiri (area lebih luas), Analisis di kanan
+# Layout dengan kolom
 col1, col2 = st.columns([2, 1])
 
 # PANEL PREDIKSI DI KIRI (Area lebih luas)
@@ -160,10 +160,10 @@ with col1:
                 
                 st.plotly_chart(fig2, use_container_width=True)
                 
-                # Tampilkan tabel prediksi setelah grafik
+                # Tampilkan hasil prediksi detail di bawah chart
+                st.markdown("##### Hasil Prediksi Detail:")
                 prediction_cols = st.columns(min(3, days))
                 
-                st.markdown("##### Hasil Prediksi Detail:")
                 for i, row in pred_df.iterrows():
                     col_idx = i % len(prediction_cols)
                     with prediction_cols[col_idx]:
@@ -239,16 +239,16 @@ with col2:
     )
 
     st.plotly_chart(fig, use_container_width=True)
-
-# Tabel data historis dengan styling
-st.markdown("### 📋 Data Historis Detail")
-st.dataframe(
-    df.style.format({
-        'Open': '${:.2f}',
-        'High': '${:.2f}',
-        'Low': '${:.2f}',
-        'Close': '${:.2f}',
-        'Volume': '{:,.0f}'
-    }),
-    height=300
-)
+    
+    # Data historis detail langsung di bawah chart
+    st.markdown("##### Data Historis Detail")
+    st.dataframe(
+        filtered_df.style.format({
+            'Open': '${:.2f}',
+            'High': '${:.2f}',
+            'Low': '${:.2f}',
+            'Close': '${:.2f}',
+            'Volume': '{:,.0f}'
+        }),
+        height=200
+    )
