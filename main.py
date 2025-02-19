@@ -1,93 +1,159 @@
 import streamlit as st
 import pandas as pd
-import math
-from pathlib import Path
-from datetime import date
-import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
+import plotly.graph_objects as go
+from datetime import date, datetime
+from pathlib import Path
 
-
+# Konfigurasi halaman
 st.set_page_config(
     page_title='Stock Prediction Dashboard',
-    page_icon=':stock:', # This is an emoji shortcode. Could be a URL too.
+    page_icon='📈',
+    layout='wide'
 )
 
-# Judul aplikasi
-st.title("Prediksi Saham dengan Model STACN")
-
-# Input tanggal berita
-st.subheader("Masukkan Tanggal Berita")
-news_date = st.date_input("Pilih Tanggal", value=date.today())
-
-# Input judul berita
-st.subheader("Masukkan Judul Berita Hari Ini")
-news_titles = st.text_area("Masukkan 5 Judul Berita (Pisahkan dengan Enter)", height=150)
-news_list = news_titles.split("\n") if news_titles else []
-
-
-# Contoh data historis saham (kamu bisa mengganti ini dengan data asli)
-@st.cache_data
-def load_historical_data():
-    dates = pd.date_range(end=date.today(), periods=365, freq='D')
-    data = {
-        "Date": dates,
-        "Open": np.random.rand(365) * 100,
-        "High": np.random.rand(365) * 100,
-        "Low": np.random.rand(365) * 100,
-        "Close": np.random.rand(365) * 100,
-        "Volume": np.random.randint(1000, 10000, size=365),
-        "Stock Num": np.random.randint(1, 100, size=365)
+# Custom CSS untuk styling
+st.markdown("""
+    <style>
+    .stButton>button {
+        width: 100%;
+        background-color: #FF4B4B;
+        color: white;
+        border-radius: 5px;
+        padding: 0.5rem 1rem;
     }
-    return pd.DataFrame(data)
+    .stButton>button:hover {
+        background-color: #FF2B2B;
+    }
+    .main > div {
+        padding: 2rem;
+        border-radius: 10px;
+    }
+    [data-testid="stMetricValue"] {
+        font-size: 2rem;
+    }
+    </style>
+    """, unsafe_allow_html=True)
 
-df = load_historical_data()
+# Judul dengan styling
+st.markdown("""
+    <h1 style='text-align: center; color: #FF4B4B; margin-bottom: 2rem;'>
+        📈 Prediksi Saham dengan Model STACN
+    </h1>
+    """, unsafe_allow_html=True)
 
-# Pilih rentang waktu
-st.subheader("Grafik Data Historis Saham")
-time_range = st.selectbox("Pilih Rentang Waktu", ["5 Hari", "10 Hari", "1 Bulan", "1 Tahun"])
+# Layout dengan kolom
+col1, col2 = st.columns([2, 1])
 
-# Filter data berdasarkan rentang waktu
-if time_range == "5 Hari":
-    filtered_df = df.tail(5)
-elif time_range == "10 Hari":
-    filtered_df = df.tail(10)
-elif time_range == "1 Bulan":
-    filtered_df = df.tail(30)
-else:
-    filtered_df = df
+with col1:
+    st.markdown("### 📊 Analisis Data Historis")
+    
+    # Data historis dengan cache
+    @st.cache_data
+    def load_historical_data():
+        dates = pd.date_range(end=date.today(), periods=365, freq='D')
+        data = {
+            "Date": dates,
+            "Open": np.random.rand(365) * 100,
+            "High": np.random.rand(365) * 100,
+            "Low": np.random.rand(365) * 100,
+            "Close": np.random.rand(365) * 100,
+            "Volume": np.random.randint(1000, 10000, size=365),
+            "Stock Num": np.random.randint(1, 100, size=365)
+        }
+        return pd.DataFrame(data)
 
-# Pilih indikator
-indicator = st.selectbox("Pilih Indikator", ["Open", "High", "Low", "Close"])
+    df = load_historical_data()
 
-# Tampilkan grafik
-st.line_chart(filtered_df.set_index("Date")[indicator])
+    # Metrics card
+    metric_col1, metric_col2, metric_col3 = st.columns(3)
+    with metric_col1:
+        st.metric("Harga Terakhir", f"${df['Close'].iloc[-1]:.2f}", 
+                 f"{((df['Close'].iloc[-1] - df['Close'].iloc[-2])/df['Close'].iloc[-2]*100):.2f}%")
+    with metric_col2:
+        st.metric("Volume", f"{df['Volume'].iloc[-1]:,.0f}", 
+                 f"{((df['Volume'].iloc[-1] - df['Volume'].iloc[-2])/df['Volume'].iloc[-2]*100):.2f}%")
+    with metric_col3:
+        st.metric("52-Week High", f"${df['High'].max():.2f}")
 
-st.subheader("Tabel Data Historis Saham")
-st.dataframe(df)
+    # Interactive chart using Plotly
+    time_range = st.select_slider(
+        "Rentang Waktu",
+        options=["5 Hari", "10 Hari", "1 Bulan", "3 Bulan", "1 Tahun"],
+        value="1 Bulan"
+    )
 
-st.subheader("Pilih Rentang Prediksi")
-prediction_range = st.radio("Prediksi Harga untuk:", 
-                            ["1 Hari ke Depan", "2 Hari ke Depan", "3 Hari ke Depan", 
-                             "4 Hari ke Depan", "5 Hari ke Depan", "10 Hari ke Depan", 
-                             "15 Hari ke Depan", "20 Hari ke Depan"])
+    ranges = {
+        "5 Hari": 5,
+        "10 Hari": 10,
+        "1 Bulan": 30,
+        "3 Bulan": 90,
+        "1 Tahun": 365
+    }
 
+    filtered_df = df.tail(ranges[time_range])
+    
+    fig = go.Figure(data=[go.Candlestick(x=filtered_df['Date'],
+                open=filtered_df['Open'],
+                high=filtered_df['High'],
+                low=filtered_df['Low'],
+                close=filtered_df['Close'])])
+    
+    fig.update_layout(
+        title='Pergerakan Harga Saham',
+        yaxis_title='Harga',
+        xaxis_title='Tanggal',
+        template='plotly_white',
+        height=500
+    )
 
-st.subheader("Lakukan Prediksi")
-if st.button("Prediksi Harga Saham"):
-    # Panggil fungsi prediksi model STACN di sini
-    # Contoh output sementara
-    prediction_result = 150.75  # Ganti dengan hasil prediksi model
-    st.success(f"Hasil Prediksi: {prediction_result}")
+    st.plotly_chart(fig, use_container_width=True)
 
-# Contoh grafik prediksi
-st.subheader("Grafik Prediksi Harga Saham")
-fig, ax = plt.subplots()
-ax.plot([1, 2, 3, 4, 5], [100, 120, 130, 140, 150], marker='o')  # Contoh data prediksi
-ax.set_xlabel("Hari ke Depan")
-ax.set_ylabel("Harga Saham")
-st.pyplot(fig)
+with col2:
+    st.markdown("### 📰 Input Berita & Prediksi")
+    
+    with st.form("prediction_form"):
+        news_date = st.date_input("Tanggal Berita", value=date.today())
+        
+        st.markdown("##### Judul Berita Hari Ini")
+        news_titles = st.text_area(
+            "Masukkan 5 Judul Berita (Pisahkan dengan Enter)",
+            height=150,
+            placeholder="Contoh:\nBerita 1\nBerita 2\nBerita 3..."
+        )
+        
+        prediction_range = st.select_slider(
+            "Rentang Prediksi",
+            options=["1 Hari", "2 Hari", "3 Hari", "5 Hari", "10 Hari", "15 Hari", "20 Hari"],
+            value="5 Hari"
+        )
+        
+        submit_button = st.form_submit_button("Prediksi Harga Saham")
+        
+        if submit_button:
+            with st.spinner('Melakukan prediksi...'):
+                # Simulasi prediksi
+                import time
+                time.sleep(1)
+                prediction_result = 150.75
+                
+                st.success("Prediksi Berhasil!")
+                st.metric(
+                    "Prediksi Harga",
+                    f"${prediction_result:.2f}",
+                    f"+{((prediction_result - df['Close'].iloc[-1])/df['Close'].iloc[-1]*100):.2f}%"
+                )
 
-# Tampilkan keterangan naik/turun/tetap
-st.subheader("Keterangan Prediksi")
-st.write("Harga saham diprediksi **naik** sebesar 5% dalam 5 hari ke depan.")
+# Tabel data historis dengan styling
+st.markdown("### 📋 Data Historis Detail")
+st.dataframe(
+    df.style.format({
+        'Open': '${:.2f}',
+        'High': '${:.2f}',
+        'Low': '${:.2f}',
+        'Close': '${:.2f}',
+        'Volume': '{:,.0f}'
+    }),
+    height=300
+)
