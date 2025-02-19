@@ -18,13 +18,13 @@ st.markdown("""
     <style>
     .stButton>button {
         width: 100%;
-        background-color: #FF4B4B;
+        background-color: #0066cc;
         color: white;
         border-radius: 5px;
         padding: 0.5rem 1rem;
     }
     .stButton>button:hover {
-        background-color: #FF2B2B;
+        background-color: #0052a3;
     }
     .main > div {
         padding: 2rem;
@@ -38,7 +38,7 @@ st.markdown("""
 
 # Judul dengan styling
 st.markdown("""
-    <h1 style='text-align: center; color: #FF4B4B; margin-bottom: 2rem;'>
+    <h1 style='text-align: center; color: #0066cc; margin-bottom: 2rem;'>
         📈 Prediksi Saham dengan Model STACN
     </h1>
     """, unsafe_allow_html=True)
@@ -77,7 +77,7 @@ with col1:
     with metric_col3:
         st.metric("52-Week High", f"${df['High'].max():.2f}")
 
-    # Interactive chart using Plotly
+    # Interactive chart using Plotly Line Chart
     time_range = st.select_slider(
         "Rentang Waktu",
         options=["5 Hari", "10 Hari", "1 Bulan", "3 Bulan", "1 Tahun"],
@@ -94,18 +94,30 @@ with col1:
 
     filtered_df = df.tail(ranges[time_range])
     
-    fig = go.Figure(data=[go.Candlestick(x=filtered_df['Date'],
-                open=filtered_df['Open'],
-                high=filtered_df['High'],
-                low=filtered_df['Low'],
-                close=filtered_df['Close'])])
+    fig = go.Figure()
+    
+    # Menambahkan line untuk setiap indikator
+    fig.add_trace(go.Scatter(x=filtered_df['Date'], y=filtered_df['Close'],
+                            mode='lines', name='Close',
+                            line=dict(color='#0066cc', width=2)))
+    
+    fig.add_trace(go.Scatter(x=filtered_df['Date'], y=filtered_df['Open'],
+                            mode='lines', name='Open',
+                            line=dict(color='#00cc66', width=2)))
     
     fig.update_layout(
         title='Pergerakan Harga Saham',
         yaxis_title='Harga',
         xaxis_title='Tanggal',
         template='plotly_white',
-        height=500
+        height=500,
+        legend=dict(
+            orientation="h",
+            yanchor="bottom",
+            y=1.02,
+            xanchor="right",
+            x=1
+        )
     )
 
     st.plotly_chart(fig, use_container_width=True)
