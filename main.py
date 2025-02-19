@@ -50,86 +50,28 @@ st.markdown("""
     </h1>
     """, unsafe_allow_html=True)
 
-# Layout dengan kolom
+# Data historis dengan cache
+@st.cache_data
+def load_historical_data():
+    dates = pd.date_range(end=date.today(), periods=365, freq='D')
+    data = {
+        "Date": dates,
+        "Open": np.random.rand(365) * 100,
+        "High": np.random.rand(365) * 100,
+        "Low": np.random.rand(365) * 100,
+        "Close": np.random.rand(365) * 100,
+        "Volume": np.random.randint(1000, 10000, size=365),
+        "Stock Num": np.random.randint(1, 100, size=365)
+    }
+    return pd.DataFrame(data)
+
+df = load_historical_data()
+
+# Layout dengan kolom - DIUBAH: Prediksi di kiri (area lebih luas), Analisis di kanan
 col1, col2 = st.columns([2, 1])
 
+# PANEL PREDIKSI DI KIRI (Area lebih luas)
 with col1:
-    st.markdown("### 📊 Analisis Data Historis")
-    
-    # Data historis dengan cache
-    @st.cache_data
-    def load_historical_data():
-        dates = pd.date_range(end=date.today(), periods=365, freq='D')
-        data = {
-            "Date": dates,
-            "Open": np.random.rand(365) * 100,
-            "High": np.random.rand(365) * 100,
-            "Low": np.random.rand(365) * 100,
-            "Close": np.random.rand(365) * 100,
-            "Volume": np.random.randint(1000, 10000, size=365),
-            "Stock Num": np.random.randint(1, 100, size=365)
-        }
-        return pd.DataFrame(data)
-
-    df = load_historical_data()
-
-    # Metrics card
-    metric_col1, metric_col2, metric_col3 = st.columns(3)
-    with metric_col1:
-        st.metric("Harga Terakhir", f"${df['Close'].iloc[-1]:.2f}", 
-                 f"{((df['Close'].iloc[-1] - df['Close'].iloc[-2])/df['Close'].iloc[-2]*100):.2f}%")
-    with metric_col2:
-        st.metric("Volume", f"{df['Volume'].iloc[-1]:,.0f}", 
-                 f"{((df['Volume'].iloc[-1] - df['Volume'].iloc[-2])/df['Volume'].iloc[-2]*100):.2f}%")
-    with metric_col3:
-        st.metric("52-Week High", f"${df['High'].max():.2f}")
-
-    # Interactive chart using Plotly Line Chart
-    time_range = st.select_slider(
-        "Rentang Waktu",
-        options=["5 Hari", "10 Hari", "1 Bulan", "3 Bulan", "1 Tahun"],
-        value="1 Bulan"
-    )
-
-    ranges = {
-        "5 Hari": 5,
-        "10 Hari": 10,
-        "1 Bulan": 30,
-        "3 Bulan": 90,
-        "1 Tahun": 365
-    }
-
-    filtered_df = df.tail(ranges[time_range])
-    
-    fig = go.Figure()
-    
-    # Menambahkan line untuk setiap indikator
-    fig.add_trace(go.Scatter(x=filtered_df['Date'], y=filtered_df['Close'],
-                            mode='lines', name='Close',
-                            line=dict(color='#0066cc', width=2)))
-    
-    fig.add_trace(go.Scatter(x=filtered_df['Date'], y=filtered_df['Open'],
-                            mode='lines', name='Open',
-                            line=dict(color='#00cc66', width=2)))
-    
-    fig.update_layout(
-        title='Pergerakan Harga Saham',
-        yaxis_title='Harga',
-        xaxis_title='Tanggal',
-        template='plotly_white',
-        height=500,
-        legend=dict(
-            orientation="h",
-            yanchor="bottom",
-            y=1.02,
-            xanchor="right",
-            x=1
-        )
-    )
-
-    st.plotly_chart(fig, use_container_width=True)
-
-with col2:
     st.markdown("### 📰 Input Berita & Prediksi")
     
     with st.form("prediction_form"):
@@ -180,25 +122,7 @@ with col2:
                     'Prediksi': predictions
                 })
                 
-                # Tampilkan tabel prediksi
-                st.markdown("##### Hasil Prediksi:")
-                for i, row in pred_df.iterrows():
-                    change = ((row['Prediksi'] - last_price if i == 0 else 
-                              row['Prediksi'] - pred_df.iloc[i-1]['Prediksi']) / 
-                             (last_price if i == 0 else pred_df.iloc[i-1]['Prediksi'])) * 100
-                    
-                    change_color = "green" if change >= 0 else "red"
-                    change_arrow = "↑" if change >= 0 else "↓"
-                    
-                    st.markdown(f"""
-                    <div class="prediction-card">
-                        <h6>{row['Tanggal']}</h6>
-                        <p style="font-size: 1.2rem; font-weight: bold">${row['Prediksi']:.2f} 
-                        <span style="color: {change_color};">{change_arrow} {abs(change):.2f}%</span></p>
-                    </div>
-                    """, unsafe_allow_html=True)
-                
-                # Grafik prediksi
+                # Grafik prediksi - Tampilkan lebih dulu karena lebih penting
                 hist_dates = df['Date'].iloc[-5:].tolist()
                 hist_prices = df['Close'].iloc[-5:].tolist()
                 
@@ -235,6 +159,86 @@ with col2:
                 )
                 
                 st.plotly_chart(fig2, use_container_width=True)
+                
+                # Tampilkan tabel prediksi setelah grafik
+                prediction_cols = st.columns(min(3, days))
+                
+                st.markdown("##### Hasil Prediksi Detail:")
+                for i, row in pred_df.iterrows():
+                    col_idx = i % len(prediction_cols)
+                    with prediction_cols[col_idx]:
+                        change = ((row['Prediksi'] - last_price if i == 0 else 
+                                row['Prediksi'] - pred_df.iloc[i-1]['Prediksi']) / 
+                                (last_price if i == 0 else pred_df.iloc[i-1]['Prediksi'])) * 100
+                        
+                        change_color = "green" if change >= 0 else "red"
+                        change_arrow = "↑" if change >= 0 else "↓"
+                        
+                        st.markdown(f"""
+                        <div class="prediction-card">
+                            <h6>{row['Tanggal']}</h6>
+                            <p style="font-size: 1.2rem; font-weight: bold">${row['Prediksi']:.2f} 
+                            <span style="color: {change_color};">{change_arrow} {abs(change):.2f}%</span></p>
+                        </div>
+                        """, unsafe_allow_html=True)
+
+# PANEL ANALISIS HISTORIS DI KANAN
+with col2:
+    st.markdown("### 📊 Analisis Data Historis")
+    
+    # Metrics card
+    metric_col1, metric_col2 = st.columns(2)
+    with metric_col1:
+        st.metric("Harga Terakhir", f"${df['Close'].iloc[-1]:.2f}", 
+                 f"{((df['Close'].iloc[-1] - df['Close'].iloc[-2])/df['Close'].iloc[-2]*100):.2f}%")
+    with metric_col2:
+        st.metric("Volume", f"{df['Volume'].iloc[-1]:,.0f}", 
+                 f"{((df['Volume'].iloc[-1] - df['Volume'].iloc[-2])/df['Volume'].iloc[-2]*100):.2f}%")
+    
+    # Interactive chart using Plotly Line Chart
+    time_range = st.select_slider(
+        "Rentang Waktu",
+        options=["5 Hari", "10 Hari", "1 Bulan", "3 Bulan"],
+        value="10 Hari"
+    )
+
+    ranges = {
+        "5 Hari": 5,
+        "10 Hari": 10,
+        "1 Bulan": 30,
+        "3 Bulan": 90,
+        "1 Tahun": 365
+    }
+
+    filtered_df = df.tail(ranges[time_range])
+    
+    fig = go.Figure()
+    
+    # Menambahkan line untuk setiap indikator
+    fig.add_trace(go.Scatter(x=filtered_df['Date'], y=filtered_df['Close'],
+                            mode='lines', name='Close',
+                            line=dict(color='#0066cc', width=2)))
+    
+    fig.add_trace(go.Scatter(x=filtered_df['Date'], y=filtered_df['Open'],
+                            mode='lines', name='Open',
+                            line=dict(color='#00cc66', width=2)))
+    
+    fig.update_layout(
+        title='Pergerakan Harga Saham',
+        yaxis_title='Harga',
+        xaxis_title='Tanggal',
+        template='plotly_white',
+        height=400,
+        legend=dict(
+            orientation="h",
+            yanchor="bottom",
+            y=1.02,
+            xanchor="right",
+            x=1
+        )
+    )
+
+    st.plotly_chart(fig, use_container_width=True)
 
 # Tabel data historis dengan styling
 st.markdown("### 📋 Data Historis Detail")
